@@ -1,8 +1,12 @@
-# Dockerfile
+# 使用官方 Ubuntu 20.04 镜像
 FROM ubuntu:20.04
 
-# Install dependencies, including curl
-RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+# 设置环境变量，防止提示交互式安装
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 更新APT并安装所需的依赖
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get install -y \
     gcc \
     make \
     curl \
@@ -11,17 +15,18 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     libcurl4-openssl-dev \
     && apt-get clean
 
-# Set the working directory
+# 设置工作目录
 WORKDIR /app
 
-# Copy source code
+# 将C语言源代码复制到容器中
 COPY main.c /app/main.c
 
-# Compile the application
+# 编译C程序
 RUN gcc -o server main.c -lmicrohttpd -ljansson -lcurl -pthread
 
-# Expose the application port
+# 暴露服务端口
 EXPOSE 9527
 
-# Command to start the application
-CMD ["/app/server"]
+# 运行程序
+CMD ["/app/server", "&&", "tail", "-f", "/dev/null"]
+
