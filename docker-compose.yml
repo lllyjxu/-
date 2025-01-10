@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  cache-node-1:
+    build:
+      context: .
+    ports:
+      - "9527:9527"
+    command: /bin/bash -c "/app/server && tail -f /dev/null"
+    environment:
+      - TOTAL_SERVERS=3
+      - CURRENT_ID=1
+
+
+  cache-node-2:
+    build:
+      context: .
+    ports:
+      - "9528:9527"
+    command: /bin/bash -c "/app/server && tail -f /dev/null"
+    environment:
+      - TOTAL_SERVERS=3
+      - CURRENT_ID=2
+
+
+  cache-node-3:
+    build:
+      context: .
+    ports:
+      - "9529:9527"
+    command: /bin/bash -c "/app/server && tail -f /dev/null"
+    environment:
+      - TOTAL_SERVERS=3
+      - CURRENT_ID=3
+
