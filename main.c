@@ -1,5 +1,3 @@
-// main.c - Simple Distributed Cache System
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,7 +12,7 @@
 #define MAX_VALUE_LEN 1024
 #define NODE_COUNT 3
 
-// Data structure for key-value store
+// 数据结构存储缓存
 typedef struct {
     char key[MAX_KEY_LEN];
     char value[MAX_VALUE_LEN];
@@ -24,7 +22,7 @@ KeyValue store[100];
 int store_size = 0;
 pthread_mutex_t lock;
 
-// 哈希分配
+// 哈希分配策略
 int hash_key(const char *key) {
     unsigned long hash = 5381;
     for (const char *ptr = key; *ptr; ++ptr) {
@@ -33,7 +31,7 @@ int hash_key(const char *key) {
     return hash % NODE_COUNT;
 }
 
-// get_value
+// 获取缓存值
 char *get_value(const char *key) {
     for (int i = 0; i < store_size; i++) {
         if (strcmp(store[i].key, key) == 0) {
@@ -43,7 +41,7 @@ char *get_value(const char *key) {
     return NULL;
 }
 
-// 添加或者更新键值对
+// 设置或更新缓存数据
 void set_value(const char *key, const char *value) {
     pthread_mutex_lock(&lock);  // 加锁，保护共享资源
     for (int i = 0; i < store_size; i++) {
@@ -59,7 +57,7 @@ void set_value(const char *key, const char *value) {
     pthread_mutex_unlock(&lock);
 }
 
-// 删除键值对
+// 删除缓存数据
 int delete_key(const char *key) {
     pthread_mutex_lock(&lock);
     for (int i = 0; i < store_size; i++) {
@@ -74,7 +72,7 @@ int delete_key(const char *key) {
     return 0;
 }
 
-// HTTP
+// 处理HTTP请求
 int http_handler(void *cls, struct MHD_Connection *connection,
                  const char *url, const char *method, const char *version,
                  const char *upload_data, size_t *upload_data_size, void **con_cls) {
@@ -82,35 +80,22 @@ int http_handler(void *cls, struct MHD_Connection *connection,
     int ret;
 
     if (strcmp(method, "GET") == 0) {
-        // 从 URL 获取键值 (url + 1 跳过 '/' 字符)
-        char *value = get_value(url + 1);
-
+        char *value = get_value(url + 1);  // 跳过 '/'
         if (value) {
-            // 创建 JSON 对象
             json_t *res = json_pack("{s:s}", url + 1, value);
-            // 将 JSON 对象转换为字符串
             char *response_str = json_dumps(res, 0);
 
-            // 创建响应，使用 MHD_RESPMEM_MUST_FREE 确保 MHD 在发送响应后释放内存
             response = MHD_create_response_from_buffer(strlen(response_str), (void *)response_str, MHD_RESPMEM_MUST_FREE);
-
-            // 设置响应头，表明内容类型是 JSON
             MHD_add_response_header(response, "Content-Type", "application/json");
 
-            // 返回 HTTP 200 OK 和响应内容
             ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
-
-            // 释放 JSON 对象的内存
             json_decref(res);
         } else {
-            // 如果没有找到 key 对应的值，则返回空响应
             response = MHD_create_response_from_buffer(0, NULL, MHD_RESPMEM_PERSISTENT);
-
-            // 返回 HTTP 404 Not Found 和空内容
             ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
         }
+        return ret; // 返回结果
     }
-
 
     else if (strcmp(method, "POST") == 0) {
         if (*upload_data_size > 0) {
@@ -129,25 +114,26 @@ int http_handler(void *cls, struct MHD_Connection *connection,
                 ret = MHD_queue_response(connection, MHD_HTTP_NOT_FOUND, response);
             }
         }
+        return ret;
     }
 
     else if (strcmp(method, "DELETE") == 0) {
-        // 调用删除逻辑（可以忽略返回值是否成功）
-        delete_key(url + 1);
+        int result = delete_key(url + 1); // 跳过 '/'
+        char response_message[50];
+        snprintf(response_message, 50, "%d", result);
 
-        // 始终返回 HTTP 200 OK
-        const char *success_message = "{\"status\":\"ok\"}";
-        response = MHD_create_response_from_buffer(strlen(success_message), (void *)success_message, MHD_RESPMEM_PERSISTENT);
+        response = MHD_create_response_from_buffer(strlen(response_message), (void *)response_message, MHD_RESPMEM_PERSISTENT);
         ret = MHD_queue_response(connection, MHD_HTTP_OK, response);
     }
+    return ret;
 }
 
-// main函数
+// 启动HTTP服务
 int main(int argc, char *argv[]) {
     struct MHD_Daemon *daemon;
     pthread_mutex_init(&lock, NULL);
 
-    // 启动 HTTP 服务
+    // 启动HTTP服务
     daemon = MHD_start_daemon(MHD_USE_SELECT_INTERNALLY, PORT, NULL, NULL, &http_handler, NULL, MHD_OPTION_END);
 
     if (daemon == NULL) {
@@ -157,7 +143,7 @@ int main(int argc, char *argv[]) {
 
     printf("Server is running on port %d\n", PORT);
 
-    // 停止 HTTP 服务
+    // 停止HTTP服务
     MHD_stop_daemon(daemon);
     pthread_mutex_destroy(&lock);
     return 0;
